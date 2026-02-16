@@ -431,6 +431,133 @@ nesa-node query bank balances $(nesa-node keys show my-wallet -a)
 
 ---
 
+## 🏆 Validator Setup
+
+### Prerequisites
+
+- Node sudah running dan synced
+- Wallet sudah dibuat dan ada balance (minimum stake)
+- Public IP static (recommended)
+
+### Step 1: Check Node Status
+
+Pastikan node sudah synced:
+```bash
+# Check sync status
+curl http://localhost:26657/status | jq '.result.sync_info.catching_up'
+# Output: false = synced, true = still syncing
+
+# Check latest block
+curl http://localhost:26657/status | jq '.result.sync_info.latest_block_height'
+```
+
+### Step 2: Get Validator Public Key
+
+```bash
+# Get validator pubkey
+nesa-node tendermint show-validator
+
+# Simpan output, contoh:
+# {"@type":"/cosmos.crypto.ed25519.PubKey","key":"abcdef123456..."}
+```
+
+### Step 3: Create Validator
+
+```bash
+# Create validator (adjust parameters as needed)
+nesa-node tx staking create-validator \
+  --amount=1000000unesa \
+  --pubkey=$(nesa-node tendermint show-validator) \
+  --moniker="my-nesa-validator" \
+  --identity="optional-keybase-id" \
+  --website="https://your-website.com" \
+  --details="My Nesa Validator Node" \
+  --commission-rate="0.10" \
+  --commission-max-rate="0.20" \
+  --commission-max-change-rate="0.01" \
+  --min-self-delegation="1" \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1 \
+  --gas=auto \
+  --gas-adjustment=1.5 \
+  --yes
+```
+
+**Parameter explanation:**
+| Parameter | Description |
+|-----------|-------------|
+| `--amount` | Initial stake (1000000unesa = 1 NESA) |
+| `--pubkey` | Validator public key dari Step 2 |
+| `--moniker` | Nama validator (visible di explorer) |
+| `--commission-rate` | Fee yang diambil dari delegators (10%) |
+| `--commission-max-rate` | Max commission yang bisa di-set (20%) |
+| `--commission-max-change-rate` | Max perubahan commission per hari (1%) |
+| `--min-self-delegation` | Minimum stake yang harus di-maintain |
+| `--from` | Wallet yang digunakan untuk stake |
+
+### Step 4: Verify Validator
+
+```bash
+# Check validator list
+nesa-node query staking validators --limit 100
+
+# Check your validator info
+nesa-node query staking validator $(nesa-node keys show my-wallet --bech val -a)
+
+# Check validator set (active validators)
+nesa-node query tendermint-validator-set | grep $(nesa-node tendermint show-address)
+```
+
+### Step 5: Manage Validator
+
+**Edit validator info:**
+```bash
+nesa-node tx staking edit-validator \
+  --moniker="new-name" \
+  --website="https://new-website.com" \
+  --details="Updated description" \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1
+```
+
+**Add more stake (self-delegation):**
+```bash
+nesa-node tx staking delegate \
+  $(nesa-node keys show my-wallet --bech val -a) \
+  500000unesa \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1
+```
+
+**Unjail validator (if jailed):**
+```bash
+nesa-node tx slashing unjail \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1
+```
+
+### Step 6: Claim Rewards
+
+```bash
+# Check rewards
+nesa-node query distribution rewards $(nesa-node keys show my-wallet -a)
+
+# Withdraw all rewards
+nesa-node tx distribution withdraw-all-rewards \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1 \
+  --gas=auto
+
+# Withdraw rewards + commission (for validators)
+nesa-node tx distribution withdraw-rewards \
+  $(nesa-node keys show my-wallet --bech val -a) \
+  --commission \
+  --from=my-wallet \
+  --chain-id=nesa-mainnet-1
+```
+
+---
+
 ## 📊 Monitoring
 
 ### Method 1: Using Prometheus + Grafana (Docker)
